@@ -6,11 +6,16 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.activity_main.*
+import timber.log.Timber
 
 class MainActivity : AppCompatActivity() {
 
     companion object {
         const val PERMISSION_REQUEST_STORAGE = 0
+        val APKS = listOf(
+            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp_signed.apk",
+            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp.apk"
+        )
     }
 
     lateinit var downloadController: DownloadController
@@ -19,14 +24,11 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // This apk is taking pagination sample app
-        val apkUrl = "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/spotmusic-remote-1.0.1.apk"
-        downloadController = DownloadController(this, apkUrl)
-
-        buttonDownload.setOnClickListener {
+        downloadController = DownloadController(this, APKS[1])
+//        buttonDownload.setOnClickListener {
             // check storage permission granted if yes then start downloading file
             checkStoragePermission()
-        }
+//        }
     }
 
     override fun onRequestPermissionsResult(
@@ -56,9 +58,11 @@ class MainActivity : AppCompatActivity() {
         if (checkSelfPermissionCompat(Manifest.permission.WRITE_EXTERNAL_STORAGE) ==
             PackageManager.PERMISSION_GRANTED
         ) {
+            Timber.d("Permission granted")
             // start downloading
             downloadController.enqueueDownload()
         } else {
+            Timber.w("Permission required")
             // Permission is missing and must be requested.
             requestStoragePermission()
         }

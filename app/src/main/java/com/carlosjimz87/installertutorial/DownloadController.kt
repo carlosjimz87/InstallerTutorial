@@ -10,18 +10,21 @@ import android.os.Build
 import android.os.Environment
 import android.widget.Toast
 import androidx.core.content.FileProvider
+import com.carlosjimz87.installertutorial.Constants.APP_INSTALL_PATH
+import com.carlosjimz87.installertutorial.Constants.FILE_BASE_PATH
+import com.carlosjimz87.installertutorial.Constants.FILE_NAME
+import com.carlosjimz87.installertutorial.Constants.MIME_TYPE
+import com.carlosjimz87.installertutorial.Constants.PROVIDER_PATH
+import timber.log.Timber
 import java.io.File
 
 class DownloadController(private val context: Context, private val url: String) {
 
-    companion object {
-        private const val FILE_NAME = "copiedApk.apk"
-        private const val FILE_BASE_PATH = "file://"
-        private const val MIME_TYPE = "application/vnd.android.package-archive"
-        private const val PROVIDER_PATH = ".provider"
-        private const val APP_INSTALL_PATH = "\"application/vnd.android.package-archive\""
-    }
 
+    private var downloadManager: DownloadManager =
+        context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+
+    private var downloadID = -1L
     fun enqueueDownload() {
 
         var destination =
@@ -33,7 +36,6 @@ class DownloadController(private val context: Context, private val url: String) 
         val file = File(destination)
         if (file.exists()) file.delete()
 
-        val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val downloadUri = Uri.parse(url)
         val request = DownloadManager.Request(downloadUri)
         request.setMimeType(MIME_TYPE)
@@ -42,10 +44,10 @@ class DownloadController(private val context: Context, private val url: String) 
 
         // set destination
         request.setDestinationUri(uri)
-        Timber.d("")
+        Timber.d("Downloading ${file.name} from $uri to $destination")
         showInstallOption(destination, uri)
         // Enqueue a new download and same the referenceId
-        downloadManager.enqueue(request)
+        downloadID = downloadManager.enqueue(request)
         Toast.makeText(context, context.getString(R.string.downloading), Toast.LENGTH_LONG)
             .show()
 
@@ -63,10 +65,12 @@ class DownloadController(private val context: Context, private val url: String) 
                 context: Context,
                 intent: Intent
             ) {
+                if (downloadID == -1L) return
+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                     val contentUri = FileProvider.getUriForFile(
                         context,
-                        "BuildConfig.APPLICATION_ID$PROVIDER_PATH",
+                        BuildConfig.APPLICATION_ID + PROVIDER_PATH,
                         File(destination)
                     )
                     val install = Intent(Intent.ACTION_VIEW)
@@ -78,13 +82,26 @@ class DownloadController(private val context: Context, private val url: String) 
                     context.unregisterReceiver(this)
                     // finish()
                 } else {
+                    Timber.d("Lower apis")
                     val install = Intent(Intent.ACTION_VIEW)
                     install.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    install.setDataAndType(
-                        uri,
-                        APP_INSTALL_PATH
-                    )
-                    context.startActivity(install)
+
+                    val newDownloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                    val newUri: Uri? = downloadManager.getUriForDownloadedFile(newDownloadId)
+
+                    if (newDownloadId == downloadID && uri.path?.equals(newUri) == true) {
+                        install.setDataAndType(
+                            uri,
+                            downloadManager.getMimeTypeForDownloadedFile(downloadID)
+                        );
+
+                        install.setDataAndType(
+                            uri,
+                            APP_INSTALL_PATH
+                        )
+                        context.startActivity(install)
+                    }
+
                     context.unregisterReceiver(this)
                     // finish()
                 }
