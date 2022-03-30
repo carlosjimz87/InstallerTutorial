@@ -3,4 +3,7 @@
     <string name="downloading">Downloading...</string>
     <string name="title_file_download">File Download</string>
     <string name="title_button">Download</string>
+    <string name="storage_permission_denied">Permission denied</string>
+    <string name="storage_access_required">Storage access required</string>
+    <string name="ok">OK</string>
 </resources>

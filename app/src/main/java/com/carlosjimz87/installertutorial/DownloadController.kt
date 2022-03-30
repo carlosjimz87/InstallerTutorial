@@ -15,7 +15,7 @@ import java.io.File
 class DownloadController(private val context: Context, private val url: String) {
 
     companion object {
-        private const val FILE_NAME = "CodeplayonApp.apk"
+        private const val FILE_NAME = "copiedApk.apk"
         private const val FILE_BASE_PATH = "file://"
         private const val MIME_TYPE = "application/vnd.android.package-archive"
         private const val PROVIDER_PATH = ".provider"
@@ -42,7 +42,7 @@ class DownloadController(private val context: Context, private val url: String) 
 
         // set destination
         request.setDestinationUri(uri)
-
+        Timber.d("")
         showInstallOption(destination, uri)
         // Enqueue a new download and same the referenceId
         downloadManager.enqueue(request)
