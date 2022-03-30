@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">InstallerTutorial</string>
+    <string name="downloading">Downloading...</string>
+    <string name="title_file_download">File Download</string>
 </resources>
