@@ -8,8 +8,8 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
-import android.widget.Toast
 import androidx.core.content.FileProvider
+import androidx.lifecycle.MutableLiveData
 import com.carlosjimz87.installertutorial.Constants.FILE_BASE_PATH
 import com.carlosjimz87.installertutorial.Constants.FILE_NAME
 import com.carlosjimz87.installertutorial.Constants.MIME_TYPE
@@ -17,115 +17,172 @@ import com.carlosjimz87.installertutorial.Constants.PROVIDER_PATH
 import timber.log.Timber
 import java.io.File
 
-enum class InstallMethod {
+enum class DownloadMethod {
     PROVIDER,
     INTENT
 }
 
-class DownloadController(private val context: Context, private val url: String) {
+class DownloadController(
+    private val context: Context,
+    private val remoteUrl: String
+) {
+
+    private lateinit var uri: Uri
+    private lateinit var downloadManager: DownloadManager
+    private var prevId: Long = -1
+    val downloadState: MutableLiveData<MDownload> by lazy {
+        MutableLiveData<MDownload>()
+    }
+
+    private fun testFilesCreation() {
+        val destination1 = getDestinationPath("getExternalFilesDir")
+        val destination2 = getDestinationPath("getExternalStorageDirectory")
+        val destination3 = getDestinationPath("getDownloadCacheDirectory")
+        val destination4 = getDestinationPath("getDataDirectory")
 
 
-    private var downloadManager: DownloadManager =
-        context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val file1 = createFileDestination(destination1)
+        val file2 = createFileDestination(destination2)
+        val file3 = createFileDestination(destination3)
+        val file4 = createFileDestination(destination4)
 
-    private var prevId = -1L
-    private var prevUri: Uri? = null
+        val a = 2
+
+    }
+
+    private fun getDestinationPath(destinationMethod: String): String {
+        val destination = when (destinationMethod) {
+            "getExternalFilesDir" -> {
+                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                    .toString() + File.separator + FILE_NAME
+            }
+            "getExternalStorageDirectory" -> {
+                Environment.getExternalStorageDirectory().toString() + File.separator + FILE_NAME
+            }
+            "getDownloadCacheDirectory" -> {
+                Environment.getDownloadCacheDirectory().toString() + File.separator + FILE_NAME
+            }
+            "getDataDirectory" -> {
+                Environment.getDataDirectory().toString() + File.separator + FILE_NAME
+            }
+            else -> {
+                ""
+            }
+        }
+        return destination
+    }
+
+    private fun createFileDestination(destination: String): File? {
+
+        val file = File(destination)
+        val existF = file.exists()
+        val isFileF = file.isFile
+        val canRead = file.canRead()
+        Timber.d("File in $destination exist:$existF isFile: $isFileF canRead:$canRead")
+        return if (file.exists() && file.isFile && file.canRead())
+            file
+        else
+            null
+    }
+
 
     fun enqueueDownload() {
+        val destination = getDestinationPath("getExternalFilesDir")
 
-        var destination =
-            context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS).toString() + "/"
-        destination += FILE_NAME
-
-        prevUri = Uri.parse("$FILE_BASE_PATH$destination")
+        uri = Uri.parse("$FILE_BASE_PATH$destination")
 
         val file = File(destination)
         if (file.exists()) file.delete()
 
-        val downloadUri = Uri.parse(url)
-        val request = DownloadManager.Request(downloadUri)
-        request.setMimeType(MIME_TYPE)
-        request.setTitle(context.resources.getString(R.string.title_file_download))
-        request.setDescription(context.resources.getString(R.string.downloading))
+        downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val downloadUri = Uri.parse(remoteUrl)
 
-        // set destination
-        request.setDestinationUri(prevUri)
-        Timber.d("Downloading ${file.name} from $prevUri to $destination")
-        showInstallOption(destination)
+        val request = DownloadManager.Request(downloadUri).apply {
+            setMimeType(MIME_TYPE)
+            setTitle(context.resources.getString(R.string.title_file_download))
+            setDescription(context.resources.getString(R.string.downloading))
+            setDestinationUri(uri)
+        }
+
+        Timber.d("Downloading $FILE_NAME from $uri to $destination")
+
+        prepareDownloadReceiver()
+
         // Enqueue a new download and same the referenceId
         prevId = downloadManager.enqueue(request)
-        Toast.makeText(context, context.getString(R.string.downloading), Toast.LENGTH_LONG)
-            .show()
-
-
+        Timber.d("Downloading...")
     }
 
-    private fun showInstallOption(
-        destination: String
-    ) {
 
+    private fun prepareDownloadReceiver() {
         // set BroadcastReceiver to install app when .apk is downloaded
         val onComplete = object : BroadcastReceiver() {
             override fun onReceive(
                 context: Context,
                 intent: Intent
             ) {
-                Timber.d("Download completed ${intent.extras.toString()}")
+                Timber.d("Download done receiver ${intent.extras.toString()}")
                 val newDownloadId = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
 
                 if (newDownloadId == -1L) return
 
-                val newUri: Uri?
-                val method = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                    newUri = getInstallUri(InstallMethod.PROVIDER, destination = destination)
-                    InstallMethod.PROVIDER
-                } else {
-                    newUri = getInstallUri(InstallMethod.INTENT, newDownloadId = prevId)
-                    InstallMethod.INTENT
-                }
+                // create Download instance
+                val download = MDownload(
+                    uri,
+                    prevId.toString(),
+                    FILE_NAME,
+                    MIME_TYPE
+                )
 
-                if (checkDownloadedFile(prevUri)) {
-                    install(newUri, method)
+                if (Utils.checkFileExist(download.uri)) {
+                    val newUri: Uri? = conformUriByMethod(download.uri)
+                    Timber.d("DownloadState will change")
+                    downloadState.postValue(
+                        download.copy(
+                            id = newDownloadId.toString(),
+                            uri = newUri ?: download.uri,
+                            filename = download.filename,
+                            mimeType = downloadManager.getMimeTypeForDownloadedFile(prevId)
+                        )
+                    )
                 }
 
                 Timber.d("Unregister receiver")
                 context.unregisterReceiver(this)
             }
-
-
         }
+
         context.registerReceiver(
             onComplete,
             IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
         )
     }
 
+    private fun conformUriByMethod(destUri: Uri?): Uri? {
 
-    fun checkDownloadedFile(uri: Uri?): Boolean {
-        Timber.d("Verify file at ${uri?.path}")
-        return uri?.path?.let { path ->
-            File(path).run {
-                this.exists() && this.isFile && this.canRead()
-            }
-        } ?: false
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            createInstallUri(DownloadMethod.PROVIDER, destination = destUri?.path)
+        } else {
+            createInstallUri(DownloadMethod.INTENT, newDownloadId = prevId)
+        }
     }
 
-    fun getInstallUri(
-        method: InstallMethod,
+    private fun createInstallUri(
+        method: DownloadMethod,
         newDownloadId: Long? = null,
         destination: String? = null
     ): Uri? {
         return when (method) {
-            InstallMethod.PROVIDER -> {
+            DownloadMethod.PROVIDER -> {
                 destination?.let {
                     FileProvider.getUriForFile(
                         context,
-                        BuildConfig.APPLICATION_ID + PROVIDER_PATH,
+                        context.applicationContext.packageName + PROVIDER_PATH,
                         File(destination)
                     )
                 }
             }
-            InstallMethod.INTENT -> {
+            DownloadMethod.INTENT -> {
                 newDownloadId?.let {
                     downloadManager.getUriForDownloadedFile(newDownloadId)
                 }
@@ -133,31 +190,6 @@ class DownloadController(private val context: Context, private val url: String) 
         }
     }
 
-    fun install(uri: Uri?, method: InstallMethod) {
-        Timber.d("Proceed to install on $${Build.VERSION.CODENAME} via $method")
-        val intent: Intent = when (method) {
-            InstallMethod.PROVIDER -> {
-                Intent(Intent.ACTION_VIEW).apply {
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    putExtra(Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
-                    data = uri
-                }
-            }
-            InstallMethod.INTENT -> {
-                val mime = downloadManager.getMimeTypeForDownloadedFile(prevId)
-                Intent(Intent.ACTION_VIEW).apply {
-                    flags = Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    setDataAndType(
-                        uri,
-                        mime
-                    )
-                }
-            }
-        }
-        Timber.d("Installing $intent")
-        context.startActivity(intent)
-    }
 
 }
 

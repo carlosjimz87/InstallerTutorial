@@ -13,22 +13,33 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PERMISSION_REQUEST_STORAGE = 0
         val APKS = listOf(
-            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp_signed.apk",
-            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp.apk"
+            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp.apk",
+            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp_signed.apk"
         )
     }
 
-    lateinit var downloadController: DownloadController
+    private lateinit var downloadController: DownloadController
+    private val installManager: InstallManager = InstallManager(this, DownloadMethod.PROVIDER)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        downloadController = DownloadController(this, APKS[0])
 
-        downloadController = DownloadController(this, APKS[1])
-//        buttonDownload.setOnClickListener {
-            // check storage permission granted if yes then start downloading file
-            checkStoragePermission()
-//        }
+        downloadController.downloadState.observe(this){ download ->
+            Timber.d("Download completed $download")
+            installManager.install(download)
+        }
+
+        checkStoragePermission()
+
+    }
+
+    private fun start() {
+        // start downloading
+        Timber.d("Starting download")
+        downloadController.enqueueDownload()
+
     }
 
     override fun onRequestPermissionsResult(
@@ -40,8 +51,7 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == PERMISSION_REQUEST_STORAGE) {
             // Request for camera permission.
             if (grantResults.size == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // start downloading
-                downloadController.enqueueDownload()
+                start()
             } else {
                 // Permission request was denied.
                 mainLayout.showSnackbar(
