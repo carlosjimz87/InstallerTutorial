@@ -1,10 +1,9 @@
-package com.carlosjimz87.installertutorial
+package com.carlosjimz87.installertutorial.models
 
 import android.net.Uri
 
 data class MDownload(
     val uri: Uri,
-    val id: String?="",
     val filename: String?="",
     val mimeType: String?=""
 )

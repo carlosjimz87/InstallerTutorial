@@ -1,9 +1,16 @@
-package com.carlosjimz87.installertutorial
+package com.carlosjimz87.installertutorial.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.carlosjimz87.installertutorial.managers.DownloadController
+import com.carlosjimz87.installertutorial.managers.InstallMethod
+import com.carlosjimz87.installertutorial.R
+import com.carlosjimz87.installertutorial.managers.InstallManager
+import com.carlosjimz87.installertutorial.models.MDownload
+import com.carlosjimz87.installertutorial.utils.*
 import com.google.android.material.snackbar.Snackbar
 import kotlinx.android.synthetic.main.activity_main.*
 import timber.log.Timber
@@ -13,33 +20,47 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PERMISSION_REQUEST_STORAGE = 0
         val APKS = listOf(
-            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp.apk",
-            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyApp_signed.apk"
+            "https://spotdyna-app.s3.eu-west-1.amazonaws.com/apk/copyfiles.apk",
         )
     }
 
     private lateinit var downloadController: DownloadController
-    private val installManager: InstallManager = InstallManager(this, DownloadMethod.PROVIDER)
+    private val installManager: InstallManager = InstallManager(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         downloadController = DownloadController(this, APKS[0])
 
-        downloadController.downloadState.observe(this){ download ->
+        downloadController.downloadState.observe(this) { download ->
             Timber.d("Download completed $download")
-            installManager.install(download)
+            installDownloadedApp(download)
         }
 
         checkStoragePermission()
+    }
 
+    private fun installDownloadedApp(download: MDownload) {
+        installManager.install(download)
     }
 
     private fun start() {
-        // start downloading
-        Timber.d("Starting download")
+        Timber.d("Starting")
         downloadController.enqueueDownload()
+    }
 
+    fun directInstall() {
+        val destination = baseContext.getDestinationPath("getExternalFilesDir")
+
+        val uri = Uri.parse("${Constants.FILE_BASE_PATH}$destination")
+
+        val download = MDownload(
+            uri,
+            filename = Constants.FILE_NAME,
+            mimeType = Constants.MIME_TYPE
+        )
+
+        installDownloadedApp(download)
     }
 
     override fun onRequestPermissionsResult(
@@ -70,7 +91,7 @@ class MainActivity : AppCompatActivity() {
         ) {
             Timber.d("Permission granted")
             // start downloading
-            downloadController.enqueueDownload()
+            start()
         } else {
             Timber.w("Permission required")
             // Permission is missing and must be requested.

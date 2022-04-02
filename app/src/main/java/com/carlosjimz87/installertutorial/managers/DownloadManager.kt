@@ -1,4 +1,4 @@
-package com.carlosjimz87.installertutorial
+package com.carlosjimz87.installertutorial.managers
 
 import android.app.DownloadManager
 import android.content.BroadcastReceiver
@@ -7,19 +7,23 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import androidx.core.content.FileProvider
 import androidx.lifecycle.MutableLiveData
-import com.carlosjimz87.installertutorial.Constants.FILE_BASE_PATH
-import com.carlosjimz87.installertutorial.Constants.FILE_NAME
-import com.carlosjimz87.installertutorial.Constants.MIME_TYPE
-import com.carlosjimz87.installertutorial.Constants.PROVIDER_PATH
+import com.carlosjimz87.installertutorial.R
+import com.carlosjimz87.installertutorial.models.MDownload
+import com.carlosjimz87.installertutorial.utils.Constants.FILE_BASE_PATH
+import com.carlosjimz87.installertutorial.utils.Constants.FILE_NAME
+import com.carlosjimz87.installertutorial.utils.Constants.MIME_TYPE
+import com.carlosjimz87.installertutorial.utils.Constants.PROVIDER_PATH
+import com.carlosjimz87.installertutorial.utils.Utils
+import com.carlosjimz87.installertutorial.utils.getDestinationPath
 import timber.log.Timber
 import java.io.File
 
-enum class DownloadMethod {
+enum class InstallMethod {
     PROVIDER,
-    INTENT
+    INTENT,
+    COMMANDS,
 }
 
 class DownloadController(
@@ -34,43 +38,20 @@ class DownloadController(
         MutableLiveData<MDownload>()
     }
 
-    private fun testFilesCreation() {
-        val destination1 = getDestinationPath("getExternalFilesDir")
-        val destination2 = getDestinationPath("getExternalStorageDirectory")
-        val destination3 = getDestinationPath("getDownloadCacheDirectory")
-        val destination4 = getDestinationPath("getDataDirectory")
-
-
-        val file1 = createFileDestination(destination1)
-        val file2 = createFileDestination(destination2)
-        val file3 = createFileDestination(destination3)
-        val file4 = createFileDestination(destination4)
-
-        val a = 2
-
-    }
-
-    private fun getDestinationPath(destinationMethod: String): String {
-        val destination = when (destinationMethod) {
-            "getExternalFilesDir" -> {
-                context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-                    .toString() + File.separator + FILE_NAME
-            }
-            "getExternalStorageDirectory" -> {
-                Environment.getExternalStorageDirectory().toString() + File.separator + FILE_NAME
-            }
-            "getDownloadCacheDirectory" -> {
-                Environment.getDownloadCacheDirectory().toString() + File.separator + FILE_NAME
-            }
-            "getDataDirectory" -> {
-                Environment.getDataDirectory().toString() + File.separator + FILE_NAME
-            }
-            else -> {
-                ""
-            }
-        }
-        return destination
-    }
+//    private fun testFilesCreation() {
+//        val destination1 = context.getDestinationPath("getExternalFilesDir")
+//        val destination2 = context.getDestinationPath("getExternalStorageDirectory")
+//        val destination3 = context.getDestinationPath("getDownloadCacheDirectory")
+//        val destination4 = context.getDestinationPath("getDataDirectory")
+//
+//
+//        val file1 = createFileDestination(destination1)
+//        val file2 = createFileDestination(destination2)
+//        val file3 = createFileDestination(destination3)
+//        val file4 = createFileDestination(destination4)
+//
+//        val a = 2
+//    }
 
     private fun createFileDestination(destination: String): File? {
 
@@ -87,7 +68,7 @@ class DownloadController(
 
 
     fun enqueueDownload() {
-        val destination = getDestinationPath("getExternalFilesDir")
+        val destination = context.getDestinationPath("getExternalFilesDir")
 
         uri = Uri.parse("$FILE_BASE_PATH$destination")
 
@@ -129,7 +110,6 @@ class DownloadController(
                 // create Download instance
                 val download = MDownload(
                     uri,
-                    prevId.toString(),
                     FILE_NAME,
                     MIME_TYPE
                 )
@@ -139,7 +119,6 @@ class DownloadController(
                     Timber.d("DownloadState will change")
                     downloadState.postValue(
                         download.copy(
-                            id = newDownloadId.toString(),
                             uri = newUri ?: download.uri,
                             filename = download.filename,
                             mimeType = downloadManager.getMimeTypeForDownloadedFile(prevId)
@@ -161,19 +140,19 @@ class DownloadController(
     private fun conformUriByMethod(destUri: Uri?): Uri? {
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            createInstallUri(DownloadMethod.PROVIDER, destination = destUri?.path)
+            createInstallUri(InstallMethod.PROVIDER, destination = destUri?.path)
         } else {
-            createInstallUri(DownloadMethod.INTENT, newDownloadId = prevId)
+            createInstallUri(InstallMethod.INTENT, newDownloadId = prevId)
         }
     }
 
     private fun createInstallUri(
-        method: DownloadMethod,
+        method: InstallMethod,
         newDownloadId: Long? = null,
         destination: String? = null
     ): Uri? {
         return when (method) {
-            DownloadMethod.PROVIDER -> {
+            InstallMethod.PROVIDER -> {
                 destination?.let {
                     FileProvider.getUriForFile(
                         context,
@@ -182,11 +161,12 @@ class DownloadController(
                     )
                 }
             }
-            DownloadMethod.INTENT -> {
+            InstallMethod.INTENT -> {
                 newDownloadId?.let {
                     downloadManager.getUriForDownloadedFile(newDownloadId)
                 }
             }
+            else -> null
         }
     }
 

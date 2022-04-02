@@ -1,4 +1,4 @@
-package com.carlosjimz87.installertutorial
+package com.carlosjimz87.installertutorial.utils
 
 import android.net.Uri
 import timber.log.Timber
@@ -14,6 +14,4 @@ object Utils {
             file.exists() && file.isFile && file.canRead()
         } ?: false
     }
-
-
 }
