@@ -32,12 +32,13 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         downloadController = DownloadController(this, APKS[0])
 
-        downloadController.downloadState.observe(this) { download ->
-            Timber.d("Download completed $download")
-            installDownloadedApp(download)
-        }
+//        downloadController.downloadState.observe(this) { download ->
+//            Timber.d("Download completed $download")
+//            installDownloadedApp(download)
+//        }
 
-        checkStoragePermission()
+//        checkStoragePermission()
+        directInstall()
     }
 
     private fun installDownloadedApp(download: MDownload) {

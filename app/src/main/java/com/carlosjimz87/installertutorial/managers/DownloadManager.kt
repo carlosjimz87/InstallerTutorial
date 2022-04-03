@@ -20,12 +20,6 @@ import com.carlosjimz87.installertutorial.utils.getDestinationPath
 import timber.log.Timber
 import java.io.File
 
-enum class InstallMethod {
-    PROVIDER,
-    INTENT,
-    COMMANDS,
-}
-
 class DownloadController(
     private val context: Context,
     private val remoteUrl: String
@@ -169,7 +163,5 @@ class DownloadController(
             else -> null
         }
     }
-
-
 }
 
