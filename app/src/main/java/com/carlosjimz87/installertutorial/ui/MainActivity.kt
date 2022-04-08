@@ -4,11 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import androidx.appcompat.app.AppCompatActivity
 import com.carlosjimz87.installertutorial.managers.DownloadController
 import com.carlosjimz87.installertutorial.managers.InstallMethod
 import com.carlosjimz87.installertutorial.R
 import com.carlosjimz87.installertutorial.managers.InstallManager
+import com.carlosjimz87.installertutorial.managers.InstallManager2
 import com.carlosjimz87.installertutorial.models.MDownload
 import com.carlosjimz87.installertutorial.utils.*
 import com.google.android.material.snackbar.Snackbar
@@ -25,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private lateinit var downloadController: DownloadController
-    private val installManager: InstallManager = InstallManager(this)
+    private val installManager: InstallManager2 = InstallManager2(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
 //        checkStoragePermission()
         directInstall()
+
     }
 
     private fun installDownloadedApp(download: MDownload) {
@@ -50,15 +53,18 @@ class MainActivity : AppCompatActivity() {
         downloadController.enqueueDownload()
     }
 
-    fun directInstall() {
+    private fun directInstall() {
         val destination = baseContext.getDestinationPath("getExternalFilesDir")
+        val destination2 = baseContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
 
-        val uri = Uri.parse("${Constants.FILE_BASE_PATH}$destination")
+        val uri = Uri.parse(destination)
 
         val download = MDownload(
             uri,
             filename = Constants.FILE_NAME,
-            mimeType = Constants.MIME_TYPE
+            mimeType = Constants.MIME_TYPE,
+            packageName = Constants.COPYFILES,
+            activityName = Constants.ACTIVITY,
         )
 
         installDownloadedApp(download)

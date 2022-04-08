@@ -4,7 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.carlosjimz87.installertutorial.models.MDownload
-import com.carlosjimz87.installertutorial.utils.Constants.REPLACE_ACTION
+import com.carlosjimz87.installertutorial.utils.Actions
+import com.carlosjimz87.installertutorial.utils.Utils
 import timber.log.Timber
 
 enum class InstallMethod {
@@ -106,6 +107,6 @@ class InstallManager(
     companion object {
         const val INSTALL_COMMANDS = "pm install -r -d "
         const val UPDATE_RECEIVER = "/.UpdateReceiver"
-        const val REPLACE_PACKAGE_INTENT_COMMANDS = "am broadcast -a  $REPLACE_ACTION -n "
+        const val REPLACE_PACKAGE_INTENT_COMMANDS = "am broadcast -a  ${Actions.PACKAGE_REPLACED} -n "
     }
 }
